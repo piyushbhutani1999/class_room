@@ -13,7 +13,7 @@
                     <h3>Join Class </h3>
                     <h5>Click here to join class</h5>
                     <br>
-                    <a href="{%url 'student:join_class' %}" class="nav-link text-white add-button" href=""><i class="fa fa-plus-circle"></i>JOIN CLASSROOM</a>
+                    <a href="{%url 'student:join_class' %}" class="nav-link text-white add-button"><i class="fa fa-plus-circle"></i>JOIN CLASSROOM</a>
                 </div>
             </div>
         </div>
@@ -53,17 +53,18 @@
 				<!-- User Name -->
 				<h5 class="text-center">{{student.name}}</h5>
 				<p>Rollno : {{student.rollno}}</p>
+				<p>{{student.user.email}}</p>
 				
 				<a href="{% url 'student:join_class' %}" class="btn btn-main-sm">Join Classroom</a>
 			  </div>
 			  <!-- Dashboard Links -->
 			   <div class="widget user-dashboard-menu">
 						  <ul>  
-								<li class="active"><a href=""><i class="fa fa-bookmark-o"></i> My Classes</a></li>
+								<li class="active"><a href="{% url 'student:homepage' %}"><i class="fa fa-folder"></i> My Classes</a></li>
 						  <li  ><a href="{% url 'student:student_edit_view' %}"><i class="fa fa-user"></i>Edit Profile</a></li>
 								
-								<li><a href=""data-toggle="modal" data-target="#logoutaccount"><i class="fa fa-cog"></i> Logout</a></li>
-								<li><a href="" data-toggle="modal" data-target="#deleteaccount"><i class="fa fa-power-off"></i>Delete
+								<li><a href=""data-toggle="modal" data-target="#logoutaccount"><i class="fa fa-power-off"></i> Logout</a></li>
+								<li><a href="" data-toggle="modal" data-target="#deleteaccount"><i class="fa fa-cog"></i>Delete
 					  Account</a></li>
 						</ul>
 			  </div>
@@ -88,7 +89,7 @@
 						  </div>
 						  <div class="modal-footer border-top-0 mb-3 mx-5 justify-content-lg-between justify-content-center">
 							<button type="button" class="btn btn-primary" data-dismiss="modal">Cancel</button>
-							  <a href=""> <button type="button" class="btn btn-danger">Delete</button></a>
+							  <a href="{% url 'customuser:delete'%}"> <button type="button" class="btn btn-danger">Delete</button></a>
 						  </div>
 						</div>
 					  </div>
@@ -106,7 +107,7 @@
 						  <div class="modal-body text-center">
 							<img src="images/account/Account1.png" class="img-fluid mb-2" alt="">
 							<h6 class="py-2">Are you sure you want to Logout your account?</h6>
-							<p>Keep smiling and selling products</p>
+							<p></p>
 						  </div>
 						  <div class="modal-footer border-top-0 mb-3 mx-5 justify-content-lg-between justify-content-center">
 							<button type="button" class="btn btn-primary" data-dismiss="modal">Cancel</button>
@@ -124,7 +125,7 @@
 			<div class="widget dashboard-container my-adslist">
 			  <h3 class="widget-header">My Classes</h3>
 			  
-					{%if classrooms is not None %}
+					{%if classrooms %}
 									
 					<table class="table table-responsive product-dashboard-table">
 							<thead>
@@ -150,12 +151,12 @@
 						<div class="">
 						  <ul class="list-inline justify-content-center">
 							<li class="list-inline-item">
-							  <a data-toggle="tooltip" data-placement="top" title="view" class="view" href="{%url 'student:classroom_detail' class.pk  %}">
+							  <a data-toggle="tooltip" data-placement="top" title="view" class="view" href="{%url 'student:classroom_detail' class.slug  %}">
 								<i class="fa fa-eye"></i>
 							  </a>
 							</li>
 							<li class="list-inline-item">
-							  <a class="delete"  data-toggle="modal" data-target="#deleteproduct" href="" data-placement="top" title="Exit" >
+							  <a class="delete"  data-toggle="modal" data-target="#deleteproduct" href="{%url 'student:classroom_exit_view' class.slug  %}" data-placement="top" title="Exit" >
 								<i class="fa fa-sign-out"></i>
 							  </a>
 							</li>
@@ -176,16 +177,17 @@
 							<div class="modal-body text-center">
 							  <img src="images/account/Account1.png" class="img-fluid mb-2" alt="">
 							  <h6 class="py-2">Are you sure you want to leave this Class ?</h6>
-							  <p>Once you leave, you will not able to get it back.</p>
+							  <p></p>
 							</div>
 							<div class="modal-footer border-top-0 mb-3 mx-5 justify-content-lg-between justify-content-center">
 							  <button type="button" class="btn btn-primary" data-dismiss="modal">Cancel</button>
-							  <a href="{% url 'student:classroom_exit_view' class.id %}"><button type="button" class="btn btn-danger">Exit</button></a>
+							  <a href="{% url 'student:classroom_exit_view' class.slug %}"><button type="button" class="btn btn-danger">Exit</button></a>
 							</div>
 		
 				{% endfor %}
 			{%else%}
-					  <h3>No classes to show. Click on JOIN CLASSROOM to add new classes.</h3>
+			<h3>No classes to show >> <a href="{%url 'student:join_class' %}">Join
+				Classroom</a></h3>
 			{%endif%}
 								   
 				</tbody>

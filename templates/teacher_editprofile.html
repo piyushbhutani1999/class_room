@@ -37,8 +37,8 @@
                     </div>
                     <!-- Dashboard Links -->
                      <div class="widget user-dashboard-menu">
-                                <ul>      <li ><a href="{% url 'teacher:homepage' %}"><i class="fa fa-bookmark-o"></i> My Classes</a></li>
-                                <li class="active"  ><a  href=""><i class="fa fa-user"></i>Edit Profile</a></li>
+                                <ul>      <li ><a href="{% url 'teacher:homepage' %}"><i class="fa fa-folder"></i> My Classes</a></li>
+                                <li class="active"  ><a  href="{% url 'teacher:teachers_edit' %}"><i class="fa fa-user"></i>Edit Profile</a></li>
                                   
                                       <li><a href=""data-toggle="modal" data-target="#logoutaccount"><i class="fa fa-cog"></i> Logout</a></li>
                                       <li><a href="" data-toggle="modal" data-target="#deleteaccount"><i class="fa fa-power-off"></i>Delete
@@ -66,7 +66,7 @@
                                 </div>
                                 <div class="modal-footer border-top-0 mb-3 mx-5 justify-content-lg-between justify-content-center">
                                   <button type="button" class="btn btn-primary" data-dismiss="modal">Cancel</button>
-                                    <a href=""> <button type="button" class="btn btn-danger">Delete</button></a>
+                                    <a href="{% url 'customuser:delete'%}"> <button type="button" class="btn btn-danger">Delete</button></a>
                                 </div>
                               </div>
                             </div>
@@ -84,7 +84,7 @@
                                 <div class="modal-body text-center">
                                   <img src="images/account/Account1.png" class="img-fluid mb-2" alt="">
                                   <h6 class="py-2">Are you sure you want to Logout your account?</h6>
-                                  <p>Keep smiling and selling products</p>
+                                  <p></p>
                                 </div>
                                 <div class="modal-footer border-top-0 mb-3 mx-5 justify-content-lg-between justify-content-center">
                                   <button type="button" class="btn btn-primary" data-dismiss="modal">Cancel</button>
@@ -101,26 +101,8 @@
 				<!-- Edit Profile Welcome Text -->
 				<div class="widget welcome-message">
 					<h2>Edit profile</h2>
-					<p>Here you can edit your details. Give accurate details for better selling</p>
+				
 				</div>
-{% for message in messages %}
-{% if message.level is DEFAULT_MESSAGE_LEVELS.ERROR %}
-            <div class="alert alert-danger">
-                <a class="close" href="#" data-dismiss="alert">×</a>
-
-                {{ message }} 
-
-            </div>
-            {%else%}
-            <div class="alert alert-success">
-                <a class="close" href="#" data-dismiss="alert">×</a>
-
-                {{ message }} 
-
-            </div>
-        {%endif%}
-    
-    {% endfor %}
 
 				<div class="row">
 					<div class="col-lg-6 col-md-6">

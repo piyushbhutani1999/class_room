@@ -1,38 +1,57 @@
+import os
+
 from django.views.generic.edit import FormView
 from django.views.generic import DetailView, ListView
 from django.shortcuts import render
-from django.http import HttpResponse
+from django.utils.crypto import get_random_string
 from django.urls import reverse
 from django.urls import reverse_lazy
+from django.http import HttpResponse
 from django.http import HttpResponseRedirect
+from django.http import Http404
 from django.shortcuts import redirect
+from django.core.exceptions import ObjectDoesNotExist
+from django.core.files import File
+from django.contrib import messages
+from django.conf import settings
+from django.contrib.auth.decorators import user_passes_test
+from django.utils import timezone
 
+from teacher.models import Teacher
 from teacher.models import TeachersClassRoom
+from student.forms import SolutionCreateForm
 from student.models import Solution
+from student.models import Student, Solution, SolutionFile
 from .forms import AssignmentCreateForm
 from .models import AssignmentsFile
 from .models import Assignment
-from django.contrib import messages
-from django.core.files import File
-import os
-from django.conf import settings
-from django.http import HttpResponse, Http404
-from student.forms import SolutionCreateForm
-from student.models import Student, Solution, SolutionFile
-from django.utils.crypto import get_random_string
-from django.core.exceptions import ObjectDoesNotExist
 
 
-def add_assignment_view(request, pk_of_class):
-    classroom = TeachersClassRoom.objects.get(id=pk_of_class)
+
+def user_is_teacher_check(user):
+    if user.is_authenticated:
+        teacher = Teacher.objects.filter(user=user)
+        if teacher.count() > 0:
+            return True
+    return False
+
+def user_is_student_check(user):
+    if user_is_teacher_check(user):
+        return False
+    return True
+
+@user_passes_test(user_is_teacher_check, login_url='customuser:permission_denied')
+def add_assignment_view(request, slug_of_class):
+    try:
+        classroom = TeachersClassRoom.objects.get(slug=slug_of_class)
+        if not classroom.belongs_to_teacher(request.user):
+            return render(request, '404.html')
+    except ObjectDoesNotExist:
+        return render(request, '404.html')
     if request.method == 'POST':
         form = AssignmentCreateForm(request.POST, request.FILES)
-        print(form)
         files = request.FILES.getlist('assign_file')
-        print(form.is_valid())
-
         if form.is_valid():
-            classroom = TeachersClassRoom.objects.get(id=pk_of_class)
             assign = Assignment(
                 title=form.cleaned_data['title'],
                 instructions=form.cleaned_data['instructions'],
@@ -43,110 +62,116 @@ def add_assignment_view(request, pk_of_class):
             for f in files:
                 assignment_file = AssignmentsFile(file=f, assignment=assign)
                 assignment_file.save()
-            return HttpResponseRedirect(reverse_lazy('teacher:classroom_detail' , args=(pk_of_class,)))
+            return HttpResponseRedirect(reverse_lazy('teacher:classroom_detail', args=(slug_of_class,)))
     else:
         form = AssignmentCreateForm()
+    return render(request, 'assignment.html', {'form': form, 'classroom': classroom})
 
-    return render(request, 'assignment.html', {'form': form,'classroom':classroom})
 
-def assignment_view(request, pk, *args, **kwargs):
-    assignment = Assignment.objects.get(id=pk)
-    files = list(AssignmentsFile.objects.filter(assignment = assignment))
-    if not request.user.is_student:
-        classroom_id = assignment.classroom.id
-        classroom = TeachersClassRoom.objects.get(pk = classroom_id)
+def assignment_view(request, slug, *args, **kwargs):
+    assignment = Assignment.objects.get(slug=slug)
+    files = list(AssignmentsFile.objects.filter(assignment=assignment))
+    if request.user.is_teacher:
+        classroom = assignment.classroom
         students = classroom.student_set.all()
         students_count = students.count()
-        solutions = Solution.objects.filter(assignment=assignment)
+        solutions = Solution.objects.filter(assignment=assignment).order_by('submission_date')
         solutions_count = solutions.count()
         context = {
-            'assignment' : assignment,
-            'assignment_files' : files,
-            'solutions' : solutions,
-            'solutions_count':solutions_count,
-            'students_count':students_count,
+            'assignment': assignment,
+            'assignment_files': files,
+            'solutions': solutions,
+            'solutions_count': solutions_count,
+            'students_count': students_count,
         }
         return render(request, "index.html", context)
     else:
-        context= {
-            'assignment':assignment,
-            'assignment_files' : files,
+        context = {
+            'assignment': assignment,
+            'assignment_files': files,
         }
         return render(request, "student_assignment_view.html", context)
 
-def assignment_delete_view(request, pk,*args, **kwargs):
-    assignment = Assignment.objects.get(id=pk)
-    classroom_id = assignment.classroom.id 
-    url = reverse('teacher:classroom_detail', kwargs={'pk': classroom_id})
-    teacher_email = (assignment.classroom.teacher.user.email)
-    if assignment is not None and request.user.email==teacher_email:
-        assignment.delete()
-        messages.success(request, "Successfully deleted")
-    else:
-        messages.error(request, "Please enter a valid class Id")
-        return redirect('teacher:homepage')
-    return HttpResponseRedirect(url)
 
-def assignment_file_view(request, pk, *args, **kwargs):
-    assignment = Assignment.objects.get(id=pk)
-    files = (AssignmentsFile.objects.filter(assignment = assignment))
-    print(files)
+@user_passes_test(user_is_teacher_check, login_url='customuser:permission_denied')
+def assignment_delete_view(request, slug, *args, **kwargs):
+    try:
+        assignment = Assignment.objects.get(slug=slug)
+        classroom = assignment.classroom
+        if not classroom.belongs_to_teacher(request.user):
+            return render(request, '404.html')
+    except ObjectDoesNotExist:
+        return render(request, '404.html')
+    assignment.delete()
+    messages.success(request, "Successfully deleted")
+    return HttpResponseRedirect(reverse_lazy('teacher:classroom_detail', kwargs={'slug': classroom.slug}))
+
+
+def assignment_file_view(request, slug, *args, **kwargs):
+    try:
+        assignment = Assignment.objects.get(slug=slug)
+        classroom = assignment.classroom
+        if not classroom.belongs_to_teacher(request.user):
+            return render(request, '404.html')
+    except ObjectDoesNotExist:
+        return render(request, '404.html')
+    files = assignment.get_files()
     context = {
-        'assignment_files' : files,
+        'assignment_files': files,
     }
     return render(request, "assignment_file_view.html", context)
 
-def is_student_slug_used(student_slug):
-    try:
-        solution = Solution.objects.get(student_slug=student_slug)
-        return True
-    except ObjectDoesNotExist:
-        return False
 
-def solution_create_view(request, pk, *args, **kwargs):
-    assignment =Assignment.objects.get(id = pk)
-    student = Student.objects.get(user = request.user)
-    try:
-        sol  =Solution.objects.get(assignment=assignment, student=student)
-    except:
-        sol=None
-    if sol is not None:    
-        solfiles = SolutionFile.objects.filter(submission=sol)
+@user_passes_test(user_is_student_check, login_url='customuser:permission_denied')
+def solution_create_view(request, slug, *args, **kwargs):
+    assignment = Assignment.objects.filter(slug=slug).first()
+    slug_of_class = assignment.classroom.slug 
+    student = Student.objects.get(user=request.user)
+    if (assignment is None or 
+            not student.has_access_to_assignment(assignment)):
+        return render(request, '404.html')
+    if not student.has_submitted_solution(assignment):
+        now = timezone.now().isoformat()
+        assignment_duedate =assignment.due_date.isoformat()
+        if now<assignment_duedate:
+            form = SolutionCreateForm()
+            if request.method == 'POST':
+                form = SolutionCreateForm(request.POST, request.FILES)
+                files = request.FILES.getlist('solution_file')
+                if form.is_valid():
+                    comment = form.cleaned_data['comment']
+                    solution = Solution(
+                        comment=comment, student=student, assignment=assignment)
+                    solution.save()
+                    for f in files:
+                        solution_file = SolutionFile(
+                            file=f, submission=solution)
+                        solution_file.save()
+                    messages.success(
+                        request, "Solution to assignment is successfully submitted")
+                    return redirect(reverse('student:assignment:detail',
+                                kwargs={'slug_of_class':slug_of_class,'slug': slug}))
+                else:
+                    messages.error(request, "Please enter valid info")
+            return render(request, 'student_solution_view.html',
+                        {'form': form, 'assignment': assignment})
+        else:
+            messages.error(request,"The deadline to submit the assignment is over.")
+            return redirect(reverse('student:assignment:detail',
+                                kwargs={'slug_of_class':slug_of_class,'slug': slug}))
     else:
-        solfiles=None
-    if solfiles is None:
-        count=0
-        form  = SolutionCreateForm()
-        if request.method=='POST':
-            form  = SolutionCreateForm(request.POST,request.FILES)
-            files = request.FILES.getlist('solution_file')
-            print(form)
-            if form.is_valid():
-                comment = form.cleaned_data['comment']
-                while True:
-                    student_slug = get_random_string(length=6, allowed_chars='abcdefghijklmnopqrstuv0123456789')
-                    if not is_student_slug_used(student_slug):
-                        break
-                solution_obj = Solution(comment=comment,student = student, assignment=assignment,student_slug=student_slug)
-                solution_obj.save()
-                for f in files:
-                    solution_file = SolutionFile(file=f, submission=solution_obj)
-                    solution_file.save()
-                messages.success(request, "Solution to assignment is successfully submitted")
-                return redirect('customuser:homepage')
-            else:
-                messages.error(request, "Please enter valid info")
-        return render(request,'student_solution_view.html',{'form':form, 'assignment':assignment,'count':count})
-    else:
-        count =1
-        return render(request,'student_solution_view.html',{'solution_files':solfiles,'count':count,'assignment':assignment})
+        solution = student.get_solution(assignment=assignment)
+        solution_files = solution.get_files()
+        return render(request, 'student_solution_view.html',
+                      {'solution_files': solution_files,
+                       'assignment': assignment,
+                       'solution': solution})
 
 
-def see_student_solution(request, pk,student_slug, *args, **kwargs):
-    print('HELLO WORLD')
-    sol  =Solution.objects.get(student_slug=student_slug)
-    assignment = Assignment.objects.get(pk =pk)
+@user_passes_test(user_is_teacher_check, login_url='customuser:permission_denied')
+def see_student_solution(request, slug_of_assignment, slug, *args, **kwargs):
+    sol = Solution.objects.get(slug=slug)
+    assignment = Assignment.objects.get(slug=slug_of_assignment)
     solfiles = SolutionFile.objects.filter(submission=sol)
     student = sol.student
-    print(solfiles)
-    return render(request,'see_student_solution.html',{'solution_files':solfiles,'assignment':assignment, 'student':student})
+    return render(request, 'see_student_solution.html', {'solution_files': solfiles, 'assignment': assignment, 'student': student})
